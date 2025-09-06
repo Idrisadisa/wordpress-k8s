@@ -1,0 +1,246 @@
+# Default values for wordpress
+# This is a YAML-formatted file.
+
+## Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+## WordPress configuration
+wordpress:
+  replicaCount: 1
+  
+  image:
+    registry: docker.io
+    repository: wordpress
+    tag: "6.4.2-apache"
+    pullPolicy: IfNotPresent
+    
+  ## WordPress credentials (use external secret in production)
+  auth:
+    username: admin
+    password: ""  # Leave empty to auto-generate
+    email: admin@example.com
+    firstName: Admin
+    lastName: User
+    blogName: "My WordPress Blog"
+    
+  ## WordPress configuration
+  configuration: |
+    # Custom WordPress configuration
+    # define('WP_DEBUG', false);
+    
+  ## Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    annotations: {}
+    
+  ## Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+      
+  ## Liveness and readiness probes
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+    
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+    
+  ## Persistence configuration
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+    annotations: {}
+    
+  ## Security context
+  securityContext:
+    enabled: true
+    fsGroup: 33
+    runAsUser: 33
+    runAsNonRoot: true
+    
+  ## Pod security context
+  podSecurityContext:
+    enabled: true
+    fsGroup: 33
+
+## MySQL configuration
+mysql:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    registry: docker.io
+    repository: mysql
+    tag: "8.0.35"
+    pullPolicy: IfNotPresent
+    
+  ## MySQL authentication
+  auth:
+    rootPassword: ""  # Leave empty to auto-generate
+    database: wordpress
+    username: wordpress
+    password: ""  # Leave empty to auto-generate
+    
+  ## Service configuration
+  service:
+    type: ClusterIP
+    port: 3306
+    targetPort: 3306
+    
+  ## Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+      
+  ## Liveness and readiness probes
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+    
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+    
+  ## Persistence configuration
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 8Gi
+    annotations: {}
+    
+  ## Security context
+  securityContext:
+    enabled: true
+    fsGroup: 999
+    runAsUser: 999
+    runAsNonRoot: true
+    
+  ## MySQL configuration
+  configuration: |
+    [mysqld]
+    default_authentication_plugin=mysql_native_password
+    skip-name-resolve
+    explicit_defaults_for_timestamp
+    basedir=/opt/bitnami/mysql
+    plugin_dir=/opt/bitnami/mysql/lib/plugin
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    datadir=/bitnami/mysql/data
+    tmpdir=/opt/bitnami/mysql/tmp
+    max_allowed_packet=16M
+    bind-address=*
+    pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+    log-error=/opt/bitnami/mysql/logs/mysqld.log
+    character-set-server=UTF8
+    collation-server=utf8_general_ci
+    slow_query_log=0
+    slow_query_log_file=/opt/bitnami/mysql/logs/mysqld.log
+    long_query_time=10.0
+
+## Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: wordpress.hkhpros.xyz
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+## Network Policy
+networkPolicy:
+  enabled: false
+  ingress:
+    enabled: true
+    namespaceSelector: {}
+    podSelector: {}
+  egress:
+    enabled: true
+
+## Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+## Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+## Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+## Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+## Node selection
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Affinity
+affinity: {}
+
+## Priority Class
+priorityClassName: ""
+
+## Init containers
+initContainers: []
+
+## Extra containers
+extraContainers: []
+
+## Extra volumes
+extraVolumes: []
+
+## Extra volume mounts
+extraVolumeMounts: []

@@ -1,0 +1,15 @@
+# secrets & certs
+*.crt
+*.key
+*.pem
+*.pfx
+.env
+values.yaml
+secret.yaml
+**/secret.yaml
+**/*secret*.yaml
+
+# misc
+*.log
+*.tmp
+.DS_Store

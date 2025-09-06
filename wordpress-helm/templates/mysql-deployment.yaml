@@ -1,0 +1,141 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wordpress.fullname" . }}-mysql
+  labels:
+    {{- include "wordpress.mysql.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mysql.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "wordpress.mysql.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "wordpress.mysql.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "wordpress.serviceAccountName" . }}
+      {{- if .Values.mysql.securityContext.enabled }}
+      securityContext:
+        fsGroup: {{ .Values.mysql.securityContext.fsGroup }}
+      {{- end }}
+      containers:
+      - name: mysql
+        image: "{{ .Values.mysql.image.registry }}/{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+        imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+        {{- if .Values.mysql.securityContext.enabled }}
+        securityContext:
+          runAsUser: {{ .Values.mysql.securityContext.runAsUser }}
+          runAsNonRoot: {{ .Values.mysql.securityContext.runAsNonRoot }}
+        {{- end }}
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-root-password
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-database
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-password
+        ports:
+        - name: mysql
+          containerPort: {{ .Values.mysql.service.targetPort }}
+          protocol: TCP
+        {{- if .Values.mysql.livenessProbe.enabled }}
+        livenessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -ec
+              - |
+                password_aux="${MYSQL_ROOT_PASSWORD:-}"
+                if [[ -f "${MYSQL_ROOT_PASSWORD_FILE:-}" ]]; then
+                    password_aux=$(cat "$MYSQL_ROOT_PASSWORD_FILE")
+                fi
+                mysqladmin status -uroot -p"${password_aux}"
+          initialDelaySeconds: {{ .Values.mysql.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.mysql.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.mysql.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.mysql.livenessProbe.failureThreshold }}
+          successThreshold: {{ .Values.mysql.livenessProbe.successThreshold }}
+        {{- end }}
+        {{- if .Values.mysql.readinessProbe.enabled }}
+        readinessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -ec
+              - |
+                password_aux="${MYSQL_ROOT_PASSWORD:-}"
+                if [[ -f "${MYSQL_ROOT_PASSWORD_FILE:-}" ]]; then
+                    password_aux=$(cat "$MYSQL_ROOT_PASSWORD_FILE")
+                fi
+                mysqladmin status -uroot -p"${password_aux}"
+          initialDelaySeconds: {{ .Values.mysql.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.mysql.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.mysql.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.mysql.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.mysql.readinessProbe.successThreshold }}
+        {{- end }}
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        {{- if .Values.mysql.configuration }}
+        - name: mysql-config
+          mountPath: /opt/bitnami/mysql/conf/my.cnf
+          subPath: my.cnf
+        {{- end }}
+        {{- with .Values.mysql.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: mysql-data
+        {{- if .Values.mysql.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "wordpress.fullname" . }}-mysql
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- if .Values.mysql.configuration }}
+      - name: mysql-config
+        configMap:
+          name: {{ include "wordpress.fullname" . }}-mysql-config
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

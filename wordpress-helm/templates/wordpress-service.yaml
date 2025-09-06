@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wordpress.fullname" . }}
+  labels:
+    {{- include "wordpress.wordpress.labels" . | nindent 4 }}
+  {{- with .Values.wordpress.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.wordpress.service.type }}
+  {{- if and (eq .Values.wordpress.service.type "LoadBalancer") .Values.wordpress.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.wordpress.service.loadBalancerIP }}
+  {{- end }}
+  ports:
+  - port: {{ .Values.wordpress.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+    {{- if and (or (eq .Values.wordpress.service.type "NodePort") (eq .Values.wordpress.service.type "LoadBalancer")) .Values.wordpress.service.nodePort }}
+    nodePort: {{ .Values.wordpress.service.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "wordpress.wordpress.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,24 @@
+{{- if .Values.wordpress.configuration }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wordpress.fullname" . }}-config
+  labels:
+    {{- include "wordpress.wordpress.labels" . | nindent 4 }}
+data:
+  wp-config.php: |
+    <?php
+    {{- .Values.wordpress.configuration | nindent 4 }}
+{{- end }}
+---
+{{- if and .Values.mysql.enabled .Values.mysql.configuration }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wordpress.fullname" . }}-mysql-config
+  labels:
+    {{- include "wordpress.mysql.labels" . | nindent 4 }}
+data:
+  my.cnf: |
+    {{- .Values.mysql.configuration | nindent 4 }}
+{{- end }}

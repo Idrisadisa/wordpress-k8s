@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wordpress.fullname" . }}
+  labels:
+    {{- include "wordpress.wordpress.labels" . | nindent 4 }}
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.wordpress.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "wordpress.wordpress.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "wordpress.wordpress.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "wordpress.serviceAccountName" . }}
+      {{- if .Values.wordpress.podSecurityContext.enabled }}
+      securityContext:
+        fsGroup: {{ .Values.wordpress.podSecurityContext.fsGroup }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: wordpress
+        image: "{{ .Values.wordpress.image.registry }}/{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
+        imagePullPolicy: {{ .Values.wordpress.image.pullPolicy }}
+        {{- if .Values.wordpress.securityContext.enabled }}
+        securityContext:
+          runAsUser: {{ .Values.wordpress.securityContext.runAsUser }}
+          runAsNonRoot: {{ .Values.wordpress.securityContext.runAsNonRoot }}
+        {{- end }}
+        env:
+        - name: WORDPRESS_DB_HOST
+          value: {{ include "wordpress.fullname" . }}-mysql:{{ .Values.mysql.service.port }}
+        - name: WORDPRESS_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-database
+        - name: WORDPRESS_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-user
+        - name: WORDPRESS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.mysql.secretName" . }}
+              key: mysql-password
+        - name: WORDPRESS_USERNAME
+          value: {{ .Values.wordpress.auth.username | quote }}
+        {{- if .Values.wordpress.auth.password }}
+        - name: WORDPRESS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "wordpress.secretName" . }}
+              key: wordpress-password
+        {{- end }}
+        - name: WORDPRESS_EMAIL
+          value: {{ .Values.wordpress.auth.email | quote }}
+        - name: WORDPRESS_FIRST_NAME
+          value: {{ .Values.wordpress.auth.firstName | quote }}
+        - name: WORDPRESS_LAST_NAME
+          value: {{ .Values.wordpress.auth.lastName | quote }}
+        - name: WORDPRESS_BLOG_NAME
+          value: {{ .Values.wordpress.auth.blogName | quote }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.wordpress.service.targetPort }}
+          protocol: TCP
+        {{- if .Values.wordpress.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /wp-admin/install.php
+            port: http
+          initialDelaySeconds: {{ .Values.wordpress.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.wordpress.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.wordpress.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.wordpress.livenessProbe.failureThreshold }}
+          successThreshold: {{ .Values.wordpress.livenessProbe.successThreshold }}
+        {{- end }}
+        {{- if .Values.wordpress.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /wp-login.php
+            port: http
+          initialDelaySeconds: {{ .Values.wordpress.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.wordpress.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.wordpress.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.wordpress.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.wordpress.readinessProbe.successThreshold }}
+        {{- end }}
+        volumeMounts:
+        - name: wordpress-data
+          mountPath: /var/www/html
+        {{- if .Values.wordpress.configuration }}
+        - name: wordpress-config
+          mountPath: /opt/bitnami/wordpress/wp-config.php
+          subPath: wp-config.php
+        {{- end }}
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.wordpress.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- with .Values.extraContainers }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      volumes:
+      - name: wordpress-data
+        {{- if .Values.wordpress.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "wordpress.fullname" . }}-wordpress
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- if .Values.wordpress.configuration }}
+      - name: wordpress-config
+        configMap:
+          name: {{ include "wordpress.fullname" . }}-config
+      {{- end }}
+      {{- with .Values.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
